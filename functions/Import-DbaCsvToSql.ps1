@@ -286,7 +286,7 @@ function Import-DbaCsvToSql {
 			$columnparser.TextFieldType = "Delimited"
 			$columnparser.SetDelimiters($Delimiter)
 			$rawcolumns = $columnparser.ReadFields()
-			
+
 			if ($FirstRowColumns -eq $true) {
 				$columns = ($rawcolumns | ForEach-Object { $_ -Replace '"' } | Select-Object -Property @{ Name = "name"; Expression = { "[$_]" } }).name
 			}
@@ -322,7 +322,6 @@ function Import-DbaCsvToSql {
 			$columnparser = New-Object Microsoft.VisualBasic.FileIO.TextFieldParser($csv[0])
 			$columnparser.TextFieldType = "Delimited"
 			$columnparser.SetDelimiters($Delimiter)
-			$line = $columnparser.ReadLine()
 			# Skip a line, in case first line are column names
 			$line = $columnparser.ReadLine()
 			$datatext = $columnparser.ReadFields()
@@ -524,7 +523,7 @@ function Import-DbaCsvToSql {
 
 		# Hack to get around the delimter parameter ValidateSet
 		if ($SingleColumn -eq $true){
-			$InternalDelimiter = ''
+			$InternalDelimiter = [char]12
 		}
 		else {
 			$InternalDelimiter = $Delimiter
@@ -718,16 +717,13 @@ function Import-DbaCsvToSql {
 		
 		# If more than one csv specified, check to ensure number of columns match
 		if ($csv -is [system.array]) {
-			if ($SingleColumn -ne $true)
-			{
-				$numberofcolumns = ((Get-Content $csv[0] -First 1 -ErrorAction Stop) -Split $InternalDelimiter).Count
-				
-				foreach ($file in $csv) {
-					$firstline = Get-Content $file -First 1 -ErrorAction Stop
-					$newnumcolumns = ($firstline -Split $InternalDelimiter).Count
-					if ($newnumcolumns -ne $numberofcolumns) {
-						throw "Multiple csv file mismatch. Do both use the same delimiter and have the same number of columns?"
-					}
+			$numberofcolumns = ((Get-Content $csv[0] -First 1 -ErrorAction Stop) -Split "$InternalDelimiter").Count
+			
+			foreach ($file in $csv) {
+				$firstline = Get-Content $file -First 1 -ErrorAction Stop
+				$newnumcolumns = ($firstline -Split $InternalDelimiter).Count
+				if ($newnumcolumns -ne $numberofcolumns) {
+					throw "Multiple csv file mismatch. Do both use the same delimiter and have the same number of columns?"
 				}
 			}
 		}
@@ -780,17 +776,15 @@ function Import-DbaCsvToSql {
 		}
 		
 		# Create columns based on first data row of first csv.
-		if ($SingleColumn -ne $true){ 
-			Write-Output "[*] Calculating column names and datatypes"
-			$columns = Get-Columns -Csv $Csv -Delimiter $InternalDelimiter -FirstRowColumns $FirstRowColumns
-			if ($columns.count -gt 255 -and $safe -eq $true) {
-				throw "CSV must contain fewer than 256 columns."
-			}
+		Write-Output "[*] Calculating column names and datatypes"
+		$columns = Get-Columns -Csv $Csv -Delimiter $InternalDelimiter -FirstRowColumns $FirstRowColumns
+		if ($columns.count -gt 255 -and $safe -eq $true) {
+			throw "CSV must contain fewer than 256 columns."
 		}
+	
 		
-		if ($SingleColumn -ne $true) {
-			$columntext = Get-ColumnText -Csv $Csv -Delimiter $InternalDelimiter
-		}
+
+		$columntext = Get-ColumnText -Csv $Csv -Delimiter $InternalDelimiter
 
 		# OLEDB method requires extra checks
 		if ($safe -eq $true) {
@@ -1148,7 +1142,7 @@ function Import-DbaCsvToSql {
 							catch {
 								$row = $datatable.NewRow()
 								try {
-									$tempcolumn = $line.Split($InternalDelimiter)
+									$tempcolumn = $line.Split("$InternalDelimiter")
 									$colnum = 0
 									foreach ($column in $tempcolumn) {
 										if ($column.length -ne 0) {
